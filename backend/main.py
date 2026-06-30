@@ -29,14 +29,18 @@ PHONE_PATTERN = re.compile(r"(?<!\d)((?:\d[\s\-]?){7}\d)(?!\d)")
 
 app = FastAPI(title="Numify API", version="1.0.0")
 
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://numify-nine.vercel.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\\.vercel\\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -395,6 +399,11 @@ async def startup():
 @app.get("/")
 def health():
     return {"app": "Numify", "status": "Backend is working"}
+
+
+@app.head("/")
+def health_head():
+    return None
 
 
 @app.get("/plans")
