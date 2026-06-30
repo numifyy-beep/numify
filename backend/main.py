@@ -278,14 +278,30 @@ def init_db():
             ],
         )
 
-    cur.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
-    if cur.fetchone()[0] == 0:
+    # Always guarantee the default admin exists on startup.
+    # This fixes Render/SQLite cases where the database already existed before admin creation.
+    admin_password_hash = hash_password("admin123")
+    admin_user = cur.execute(
+        "SELECT id FROM users WHERE email = ?",
+        ("admin@numify.com",),
+    ).fetchone()
+
+    if admin_user:
+        cur.execute(
+            """
+            UPDATE users
+            SET full_name = ?, phone = ?, password_hash = ?, role = 'admin', is_active = 1
+            WHERE email = ?
+            """,
+            ("Admin", "00000000", admin_password_hash, "admin@numify.com"),
+        )
+    else:
         cur.execute(
             """
             INSERT INTO users (full_name, email, phone, password_hash, role, is_active)
             VALUES (?, ?, ?, ?, 'admin', 1)
             """,
-            ("Admin", "admin@numify.com", "00000000", hash_password("admin123")),
+            ("Admin", "admin@numify.com", "00000000", admin_password_hash),
         )
 
     conn.commit()
@@ -406,6 +422,51 @@ def health():
 def health_head():
     return None
 
+
+
+@app.get("/repair-admin")
+def repair_admin():
+    """
+    Emergency MVP helper for Render/SQLite.
+    Creates or resets the default admin account.
+    Remove or protect this endpoint before serious production use.
+    """
+    conn = get_db()
+    password_hash = hash_password("admin123")
+
+    existing = conn.execute(
+        "SELECT id FROM users WHERE email = ?",
+        ("admin@numify.com",),
+    ).fetchone()
+
+    if existing:
+        conn.execute(
+            """
+            UPDATE users
+            SET full_name = ?, phone = ?, password_hash = ?, role = 'admin', is_active = 1
+            WHERE email = ?
+            """,
+            ("Admin", "00000000", password_hash, "admin@numify.com"),
+        )
+        message = "Admin reset successfully"
+    else:
+        conn.execute(
+            """
+            INSERT INTO users (full_name, email, phone, password_hash, role, is_active, created_at)
+            VALUES (?, ?, ?, ?, 'admin', 1, ?)
+            """,
+            ("Admin", "admin@numify.com", "00000000", password_hash, utc_string()),
+        )
+        message = "Admin created successfully"
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "message": message,
+        "email": "admin@numify.com",
+        "password": "admin123",
+    }
 
 @app.get("/plans")
 def get_plans():
