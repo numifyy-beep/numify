@@ -3,8 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import "./App.css";
 
-const API_URL = "http://127.0.0.1:8000";
-const WS_URL = "ws://127.0.0.1:8000/ws";
+const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+const WS_URL = `${API_URL.replace(/^https:/, "wss:").replace(/^http:/, "ws:")}/ws`;
 const BRAND = "Numify";
 
 function getToken() {
